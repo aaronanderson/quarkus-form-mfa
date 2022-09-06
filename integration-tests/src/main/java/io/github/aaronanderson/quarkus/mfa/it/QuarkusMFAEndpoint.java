@@ -17,16 +17,39 @@
 package io.github.aaronanderson.quarkus.mfa.it;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 
+import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
+
 @Path("/")
 @ApplicationScoped
-public class QuarkusMfaResource {
-    // add some rest methods here
+public class QuarkusMFAEndpoint {
 
-    @GET    
-    public String main() {
-        return "Main";
-    }
+	@Inject
+	CurrentVertxRequest reqContext;
+
+	@GET
+	public String main() {
+		return "Main";
+	}
+
+	@GET
+	@Path("public")
+	public String publik() {
+		return "Public";
+	}
+
+	@GET
+	@Path("mfa_login")
+	public String login() {
+		return "Login";
+	}
+
+	@GET
+	@Path("mfa_logout")
+	public String logout() {
+		return "Logout";
+	}
 }

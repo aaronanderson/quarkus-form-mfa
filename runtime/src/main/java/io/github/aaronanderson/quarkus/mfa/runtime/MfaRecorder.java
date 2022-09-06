@@ -11,6 +11,8 @@ import org.jboss.logging.Logger;
 import org.jose4j.keys.AesKey;
 import org.jose4j.lang.ByteUtil;
 
+import io.quarkus.arc.Arc;
+import io.quarkus.arc.InstanceHandle;
 import io.quarkus.arc.runtime.BeanContainer;
 import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.annotations.Recorder;
@@ -34,16 +36,18 @@ public class MfaRecorder {
 		this.config = config;
 		//this.httpBuildTimeConfig = httpBuildTimeConfig;
 	}
+	
+	//automatically add MFA endpoints to the authentication policy to allow anonymous access.
+	public void initPermissions(MfaBuildTimeConfig mfaBuildTimeConfig, HttpBuildTimeConfig httpBuildTimeConfig) {
+    	PolicyMappingConfig config = new PolicyMappingConfig();
+    	config.enabled= Optional.of(true);
+    	config.methods = Optional.of(List.of("GET", "POST"));
+    	config.paths = Optional.of(List.of(mfaBuildTimeConfig.loginView, mfaBuildTimeConfig.logoutView,mfaBuildTimeConfig.loginAction ));
+    	config.policy= "permit";
+    	config.authMechanism= Optional.empty();
+    	httpBuildTimeConfig.auth.permissions.put("quarkus_mfa", config);
 
-//	public void initPermissions() {
-//		MfaRunTimeConfig config = MfaRecorder.this.config.getValue();
-//		PolicyMappingConfig policyConfig = new PolicyMappingConfig();
-//		policyConfig.methods = Optional.of(List.of("GET", "POST"));
-//		policyConfig.paths = Optional.of(List.of(config.loginView, config.logoutView, config.loginAction));
-//		policyConfig.policy = "permit";
-//		httpBuildTimeConfig.auth.permissions.put("quarkus_mfa", policyConfig);
-//
-//	}
+	}
 
 	public void setupRoutes(BeanContainer beanContainer, MfaBuildTimeConfig buildConfig, RuntimeValue<Router> routerValue) {
 		//MfaRunTimeConfig config = MfaRecorder.this.config.getValue();
@@ -55,8 +59,9 @@ public class MfaRecorder {
 		router.post(loginAction).handler(bodyHandler).handler(authMech::action);
 	}
 
-	public Supplier<MfaAuthenticationMechanism> setupMfaAuthenticationMechanism(MfaBuildTimeConfig buildConfig) {
+	public Supplier<MfaAuthenticationMechanism> setupMfaAuthenticationMechanism(MfaBuildTimeConfig buildConfig) {    	
 		System.out.format("setupMfaAuthenticationMechanism %s\n", buildConfig);
+		//MfaIdentityStore identityStore = beanContainer.instance(MfaIdentityStore.class);
 		return new Supplier<MfaAuthenticationMechanism>() {
 			@Override
 			public MfaAuthenticationMechanism get() {

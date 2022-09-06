@@ -1,29 +1,28 @@
 package io.github.aaronanderson.quarkus.mfa.deployment;
 
-import java.util.List;
-import java.util.Optional;
 import java.util.function.BooleanSupplier;
 
 import javax.inject.Singleton;
 
+import org.jboss.jandex.DotName;
+
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthenticationMechanism;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaBuildTimeConfig;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityProvider;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaRecorder;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
 import io.quarkus.arc.deployment.BeanContainerBuildItem;
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
-import io.quarkus.builder.item.EmptyBuildItem;
+import io.quarkus.arc.deployment.UnremovableBeanBuildItem;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.BuildSteps;
 import io.quarkus.deployment.annotations.ExecutionTime;
-import io.quarkus.deployment.annotations.Produce;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.vertx.http.deployment.VertxWebRouterBuildItem;
 import io.quarkus.vertx.http.runtime.HttpBuildTimeConfig;
-import io.quarkus.vertx.http.runtime.PolicyMappingConfig;
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticationMechanism;
 
 @BuildSteps(onlyIf = QuarkusMfaProcessor.IsEnabled.class)
@@ -43,18 +42,20 @@ class QuarkusMfaProcessor {
         builder.addBeanClass(MfaIdentityProvider.class);
         additionalBeans.produce(builder.build());
     }
+    
+    @BuildStep
+    public void markUnremovable(BuildProducer<UnremovableBeanBuildItem> unremovable) {
+        unremovable.produce(new UnremovableBeanBuildItem(
+                new UnremovableBeanBuildItem.BeanTypeExclusion(DotName.createSimple((MfaIdentityStore.class.getName())))));
+    }
 
     @BuildStep
-    @Produce(EmptyBuildItem.class) 
+    @Record(ExecutionTime.STATIC_INIT) 
     public void initPermissions(
+    		MfaRecorder recorder,
     		MfaBuildTimeConfig mfaBuildTimeConfig,
             HttpBuildTimeConfig httpBuildTimeConfig) {
-    	System.out.format("initPermissions %s\n", mfaBuildTimeConfig);
-    	PolicyMappingConfig config = new PolicyMappingConfig();
-    	config.methods = Optional.of(List.of("GET", "POST"));
-    	config.paths = Optional.of(List.of(mfaBuildTimeConfig.loginView, mfaBuildTimeConfig.logoutView,mfaBuildTimeConfig.loginAction ));
-    	config.policy= "permit";
-    	httpBuildTimeConfig.auth.permissions.put("quarkus_mfa", config);
+    	recorder.initPermissions(mfaBuildTimeConfig, httpBuildTimeConfig);
         
     }
     
@@ -69,9 +70,9 @@ class QuarkusMfaProcessor {
     }
 
  
-
-    @BuildStep
+    
     @Record(ExecutionTime.RUNTIME_INIT)
+    @BuildStep
     SyntheticBeanBuildItem initMfaAuth(
             MfaRecorder recorder,
             MfaBuildTimeConfig mfaBuildTimeConfig) {

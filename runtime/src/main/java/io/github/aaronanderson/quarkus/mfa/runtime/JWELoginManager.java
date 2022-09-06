@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Optional;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -50,6 +51,7 @@ public class JWELoginManager {
 			return null;
 		}
 		String serializedJwe = existing.getValue();
+		System.out.format("received cookie %s - %s\n", cookieName, serializedJwe);
 		try {
 			JsonWebEncryption jwe = new JsonWebEncryption();
 			jwe.setAlgorithmConstraints(new AlgorithmConstraints(ConstraintType.PERMIT, KeyManagementAlgorithmIdentifiers.A128KW));
@@ -71,17 +73,17 @@ public class JWELoginManager {
 		try {
 			return claims != null && claims.getSubject() != null;
 		} catch (MalformedClaimException e) {
-			return true;
+			return false;
 		}
 
 	}
 
 	public boolean isExpired(JwtClaims claims) {
 		try {
-			long expirationTime = claims.getExpirationTime().getValue();
+			long expirationTime = claims.getExpirationTime().getValueInMillis();
 			long now = System.currentTimeMillis();
 			boolean expired = expirationTime < now;
-			log.debugf("Is expired? ( %d - %d : %b", expirationTime, now, (Boolean) expired);
+			log.infof("Is expired? ( %d - %d : %b", expirationTime, now, (Boolean) expired);
 			return expired;
 		} catch (MalformedClaimException e) {
 			return true;
@@ -109,15 +111,16 @@ public class JWELoginManager {
 	public void save(JwtClaims claims, RoutingContext context, String cookieName, boolean secureCookie) {
 		try {
 			long timeout = System.currentTimeMillis() + timeoutMillis;
-			log.debugf("The new cookie will expire at %s", new Date(timeout).toString());
+			log.infof("The new cookie will expire at %s", new Date(timeout).toString());
 			claims.setExpirationTime(NumericDate.fromMilliseconds(timeout));
 
 			JsonWebEncryption jwe = new JsonWebEncryption();
-			jwe.setPayload("Hello World!");
+			jwe.setPayload(claims.toJson());
 			jwe.setAlgorithmHeaderValue(KeyManagementAlgorithmIdentifiers.A128KW);
 			jwe.setEncryptionMethodHeaderParameter(ContentEncryptionAlgorithmIdentifiers.AES_128_CBC_HMAC_SHA_256);
 			jwe.setKey(secretKey);
 			String cookieValue = jwe.getCompactSerialization();
+			System.out.format("adding cookie %s - %s\n", cookieName, cookieValue);
 			context.response().addCookie(Cookie.cookie(cookieName, cookieValue).setPath("/").setSecure(secureCookie));
 		} catch (Exception e) {
 			throw new RuntimeException(e);
