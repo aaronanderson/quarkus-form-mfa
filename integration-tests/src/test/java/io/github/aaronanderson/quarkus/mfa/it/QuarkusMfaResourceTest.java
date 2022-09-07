@@ -15,6 +15,7 @@ import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.FormFields;
 import io.quarkus.arc.Arc;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.filter.cookie.CookieFilter;
+import io.vertx.core.json.JsonObject;
 
 @QuarkusTest
 public class QuarkusMfaResourceTest {
@@ -39,7 +40,7 @@ public class QuarkusMfaResourceTest {
          assertMainAuthenticated(location, cookieFilter);
     }
     
-  @Test
+    @Test
     public void testZeroPageLogin() throws GeneralSecurityException {
     	 CookieFilter cookieFilter = new CookieFilter();
     	 String location = assertLoginAction("jdoe1", "trustno1", cookieFilter);
@@ -87,8 +88,7 @@ public class QuarkusMfaResourceTest {
     	 String location = assertMainRedirect(cookieFilter);
     	 assertLoginPage(location,"login", null,  cookieFilter);
          location = assertLoginAction("jdoe3", "trustno1", cookieFilter);
-         assertLoginPage(location, "login", "account-locked", cookieFilter);
-         
+         assertLoginPage(location, "login", "account-locked", cookieFilter);         
     }
     
     @Test
@@ -128,11 +128,65 @@ public class QuarkusMfaResourceTest {
          //assertRegisterAction(cookieFilter);
          //assertLoginPage(location, "verify-totp", null, cookieFilter);
 		 location = assertVerifyAction("jdoe5", cookieFilter);
-         assertMainAuthenticated(location, cookieFilter);
-         
-         
+         assertMainAuthenticated(location, cookieFilter);                 
     }
 	
+    
+    @Test
+    public void testJsonState() throws GeneralSecurityException {
+    	 CookieFilter cookieFilter = new CookieFilter();
+    	 String location = assertMainRedirect(cookieFilter);
+    	 given()
+			.filter(cookieFilter)
+	       .when().get("/mfa_action")
+	       .then()
+	       .statusCode(200)
+	       .contentType("application/json")
+	       .body("action", Matchers.equalTo("login"))
+	       .body("status", not(hasValue(nullValue())))
+		   .body("path", Matchers.equalTo("/"));	 
+    }
+    
+    @Test
+    public void testJsonLoginSuccess() throws GeneralSecurityException {
+    	 CookieFilter cookieFilter = new CookieFilter();
+    	 String location = assertMainRedirect(cookieFilter);
+    	 JsonObject request = new JsonObject().put("username", "jdoe1").put("password", "trustno1");
+    	 assertJsonAction(request.encode(), "verify-totp", null, false, cookieFilter);
+    	 request = new JsonObject().put("passcode", getPasscode("jdoe1"));
+    	 assertJsonAction(request.encode(), "login", "success", false, cookieFilter);
+    }
+    
+    
+    @Test
+    public void testJsonLogout() throws GeneralSecurityException {
+    	 CookieFilter cookieFilter = new CookieFilter();
+    	 String location = assertMainRedirect(cookieFilter);
+    	 JsonObject request = new JsonObject().put("username", "jdoe1").put("password", "trustno1");
+    	 assertJsonAction(request.encode(), "verify-totp", null, false, cookieFilter);
+    	 request = new JsonObject().put("passcode", getPasscode("jdoe1"));
+    	 assertJsonAction(request.encode(), "login", "success", false, cookieFilter);
+    	 given()
+			.filter(cookieFilter)
+	       .when()
+	       .accept("application/json")
+	       .get("/mfa_action?logout=true")	       
+	       .then()
+	       .statusCode(200)
+	       .contentType("application/json")
+	       .body("action", Matchers.equalTo("logout"))
+	       .body("status", Matchers.equalTo("success"));        
+   }
+    
+    
+    @Test
+    public void testJsonAccountLocked() throws GeneralSecurityException {
+   	 CookieFilter cookieFilter = new CookieFilter();
+   	 String location = assertMainRedirect(cookieFilter);
+   	 JsonObject request = new JsonObject().put("username", "jdoe3").put("password", "trustno1");
+	 assertJsonAction(request.encode(), "login", "account-locked", false, cookieFilter);
+	 
+   }
 
 	
 	private String assertMainRedirect(CookieFilter cookieFilter) {
@@ -202,14 +256,17 @@ public class QuarkusMfaResourceTest {
             .extract().header("Location");
 	}
 	
+	
+	private String getPasscode(String username) throws GeneralSecurityException {
+		TestMfaIdentityStore store = Arc.container().instance(TestMfaIdentityStore.class).get(); 
+		return TimeBasedOneTimePasswordUtil.generateCurrentNumberString(store.totpKey(username));
+	}
+	
 	private String assertVerifyAction(String username, CookieFilter cookieFilter) throws GeneralSecurityException {
-		TestMfaIdentityStore store = Arc.container().instance(TestMfaIdentityStore.class).get();
-		//String totpKey, 
-		String passcode = TimeBasedOneTimePasswordUtil.generateCurrentNumberString(store.totpKey(username));
 		return given()
       .filter(cookieFilter)
        .contentType("application/x-www-form-urlencoded; charset=utf-8")
-       .formParam(FormFields.PASSCODE.toString(), passcode)
+       .formParam(FormFields.PASSCODE.toString(), getPasscode(username))
       .when()
           .post("/mfa_action")
           .then()
@@ -240,6 +297,22 @@ public class QuarkusMfaResourceTest {
           .then()
           .statusCode(302)
           .extract().header("Location");
+	}
+	
+	private void assertJsonAction(String body, String action, String status, boolean totpURL, CookieFilter cookieFilter) {
+		 given()
+			.filter(cookieFilter)
+	       .when()
+	       .body(body)
+	       .accept("application/json")
+	       .contentType("application/json")
+	       .post("/mfa_action")	       
+	       .then()
+	       .statusCode(200)
+	       .contentType("application/json")
+	       .body("action", Matchers.equalTo(action))
+	       .body("status", status!=null? Matchers.equalTo(status): not(hasValue(nullValue())))
+		   .body("totp-url", totpURL? hasValue(nullValue()) : not(hasValue(nullValue())));
 	}
 	
 	
