@@ -27,14 +27,12 @@ public class MfaRecorder {
 	private static final Logger log = Logger.getLogger(MfaRecorder.class);
 
 	final RuntimeValue<MfaRunTimeConfig> config;
-	//final HttpBuildTimeConfig httpBuildTimeConfig;
 
 	// the temp encryption key, persistent across dev mode restarts
 	static volatile String encryptionKey;
 
 	public MfaRecorder(RuntimeValue<MfaRunTimeConfig> config) {		
 		this.config = config;
-		//this.httpBuildTimeConfig = httpBuildTimeConfig;
 	}
 	
 	//automatically add MFA endpoints to the authentication policy to allow anonymous access.
@@ -50,8 +48,6 @@ public class MfaRecorder {
 	}
 
 	public void setupRoutes(BeanContainer beanContainer, MfaBuildTimeConfig buildConfig, RuntimeValue<Router> routerValue) {
-		//MfaRunTimeConfig config = MfaRecorder.this.config.getValue();
-		System.out.format("setupRoutes %s\n", buildConfig);
 		MfaAuthenticationMechanism authMech = beanContainer.instance(MfaAuthenticationMechanism.class);
 		Router router = routerValue.getValue();
 		BodyHandler bodyHandler = BodyHandler.create();
@@ -60,15 +56,12 @@ public class MfaRecorder {
 	}
 
 	public Supplier<MfaAuthenticationMechanism> setupMfaAuthenticationMechanism(MfaBuildTimeConfig buildConfig) {    	
-		System.out.format("setupMfaAuthenticationMechanism %s\n", buildConfig);
-		//MfaIdentityStore identityStore = beanContainer.instance(MfaIdentityStore.class);
 		return new Supplier<MfaAuthenticationMechanism>() {
 			@Override
 			public MfaAuthenticationMechanism get() {
 				String key;
 				if (!config.getValue().encryptionKey.isPresent()) {
 					if (encryptionKey != null) {
-						// persist across dev mode restarts
 						key = encryptionKey;
 					} else {
 						byte[] data = ByteUtil.randomBytes(16);
