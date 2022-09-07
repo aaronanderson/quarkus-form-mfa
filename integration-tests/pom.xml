@@ -23,6 +23,11 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+		<groupId>de.mkammerer</groupId>
+		<artifactId>argon2-jvm</artifactId>
+		  <version>2.11</version>
+		</dependency>
+    <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
       <scope>test</scope>

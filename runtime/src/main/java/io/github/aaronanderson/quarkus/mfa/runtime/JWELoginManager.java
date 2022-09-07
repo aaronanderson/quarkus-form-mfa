@@ -51,7 +51,7 @@ public class JWELoginManager {
 			return null;
 		}
 		String serializedJwe = existing.getValue();
-		System.out.format("received cookie %s - %s\n", cookieName, serializedJwe);
+		log.debugf("Cookie %s found", cookieName);
 		try {
 			JsonWebEncryption jwe = new JsonWebEncryption();
 			jwe.setAlgorithmConstraints(new AlgorithmConstraints(ConstraintType.PERMIT, KeyManagementAlgorithmIdentifiers.A128KW));
@@ -62,6 +62,9 @@ public class JWELoginManager {
 			if (isExpired(claims)) {
 				return null;
 			}
+			if (log.isDebugEnabled()) {
+				log.debugf("Claims restored:  %s", claims.toJson());	
+			}			
 			return claims;
 		} catch (Exception e) {
 			log.debug("Failed to restore persistent user session", e);
@@ -83,7 +86,7 @@ public class JWELoginManager {
 			long expirationTime = claims.getExpirationTime().getValueInMillis();
 			long now = System.currentTimeMillis();
 			boolean expired = expirationTime < now;
-			log.infof("Is expired? ( %d - %d : %b", expirationTime, now, (Boolean) expired);
+			log.debugf("Is expired? ( %d - %d : %b", expirationTime, now, (Boolean) expired);
 			return expired;
 		} catch (MalformedClaimException e) {
 			return true;
@@ -93,7 +96,7 @@ public class JWELoginManager {
 
 	public boolean newCookieNeeded(JwtClaims claims) {
 		try {
-			long expireIdle = claims.getExpirationTime().getValue();
+			long expireIdle = claims.getExpirationTime().getValueInMillis();
 			long now = System.currentTimeMillis();
 			log.debugf("Current time: %s, Expire idle timeout: %s, expireIdle - now is: %d - %d = %d", new Date(now).toString(), new Date(expireIdle).toString(), expireIdle, now, expireIdle - now);
 			boolean newCookieNeeded = (timeoutMillis - (expireIdle - now)) > newCookieIntervalMillis;
@@ -104,14 +107,14 @@ public class JWELoginManager {
 		}
 	}
 
-	public void save(JwtClaims claims, RoutingContext context, boolean secureCookie) {
-		save(claims, context, cookieName, secureCookie);
+	public void save(JwtClaims claims, RoutingContext context) {
+		save(claims, context, cookieName);
 	}
 
-	public void save(JwtClaims claims, RoutingContext context, String cookieName, boolean secureCookie) {
+	public void save(JwtClaims claims, RoutingContext context, String cookieName) {
 		try {
 			long timeout = System.currentTimeMillis() + timeoutMillis;
-			log.infof("The new cookie will expire at %s", new Date(timeout).toString());
+			log.debugf("The new cookie will expire at %s", new Date(timeout).toString());
 			claims.setExpirationTime(NumericDate.fromMilliseconds(timeout));
 
 			JsonWebEncryption jwe = new JsonWebEncryption();
@@ -120,8 +123,8 @@ public class JWELoginManager {
 			jwe.setEncryptionMethodHeaderParameter(ContentEncryptionAlgorithmIdentifiers.AES_128_CBC_HMAC_SHA_256);
 			jwe.setKey(secretKey);
 			String cookieValue = jwe.getCompactSerialization();
-			System.out.format("adding cookie %s - %s\n", cookieName, cookieValue);
-			context.response().addCookie(Cookie.cookie(cookieName, cookieValue).setPath("/").setSecure(secureCookie));
+			context.response().addCookie(Cookie.cookie(cookieName, cookieValue).setPath("/").setSecure(context.request().isSSL()));
+			log.debugf("Cookie %s saved", cookieName);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -134,8 +137,10 @@ public class JWELoginManager {
 		Cookie cookie = ctx.request().getCookie(cookieName);
 		if (cookie != null) {
 			cookie.setPath("/");
+			cookie.setSecure(ctx.request().isSSL());
 		}
 		ctx.response().removeCookie(cookieName);
+		log.debugf("Cookie %s cleared", cookieName);
 	}
 
 	public static class RestoreResult {

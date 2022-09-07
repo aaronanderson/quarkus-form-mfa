@@ -20,8 +20,13 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.ViewAction;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.ViewStatus;
 import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
+import io.vertx.core.json.JsonObject;
 
 @Path("/")
 @ApplicationScoped
@@ -30,26 +35,59 @@ public class QuarkusMFAEndpoint {
 	@Inject
 	CurrentVertxRequest reqContext;
 
-	@GET
-	public String main() {
-		return "Main";
+	public ViewAction action() {
+		return reqContext.getCurrent().get(MfaAuthContext.AUTH_ACTION_KEY);
+	}
+
+	public ViewStatus status() {
+		return reqContext.getCurrent().get(MfaAuthContext.AUTH_STATUS_KEY);
+	}
+
+	public String totpURL() {
+		return reqContext.getCurrent().get(MfaAuthContext.AUTH_TOTP_URL_KEY);
 	}
 
 	@GET
+	@Produces("application/json")
+	public String main() {
+		JsonObject result = new JsonObject();
+		result.put("main", true);
+		return result.encodePrettily();
+	}
+
+
+	@GET
 	@Path("public")
+	@Produces("application/json")
 	public String publik() {
-		return "Public";
+		JsonObject result = new JsonObject();
+		result.put("public", true);
+		return result.encodePrettily();
 	}
 
 	@GET
 	@Path("mfa_login")
+	@Produces("application/json")
 	public String login() {
-		return "Login";
+		JsonObject result = new JsonObject();
+		result.put("action", action().toString());
+		if (status() != null) {
+			result.put("status", status().toString());
+		}
+		if (totpURL() != null) {
+			result.put("totpURL", totpURL().toString());
+		}
+		//System.out.format("login - action: %s status: %s totpURL: %s\n", action(), status(), totpURL());
+		return result.encodePrettily();
 	}
 
 	@GET
 	@Path("mfa_logout")
+	@Produces("application/json")
 	public String logout() {
-		return "Logout";
+		JsonObject result = new JsonObject();
+		result.put("action", action().toString());
+		//System.out.format("logout - action: %s\n", action());
+		return result.encodePrettily();
 	}
 }

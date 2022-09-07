@@ -82,7 +82,7 @@ public class MfaRecorder {
 				MfaRunTimeConfig config = MfaRecorder.this.config.getValue();
 				JWELoginManager loginManager = new JWELoginManager(jweKey, config.cookieName, config.sessionTimeout.toMillis(), config.newCookieInterval.toMillis());
 				String loginView = buildConfig.loginView.startsWith("/") ? buildConfig.loginView : "/" + buildConfig.loginView;
-				String logoutView = buildConfig.loginView.startsWith("/") ? buildConfig.loginView : "/" + buildConfig.loginView;
+				String logoutView = buildConfig.logoutView.startsWith("/") ? buildConfig.logoutView : "/" + buildConfig.logoutView;
 				String loginAction = buildConfig.loginAction.startsWith("/") ? buildConfig.loginAction : "/" + buildConfig.loginAction;
 				return new MfaAuthenticationMechanism(loginView, logoutView, loginAction, loginManager);
 			}
