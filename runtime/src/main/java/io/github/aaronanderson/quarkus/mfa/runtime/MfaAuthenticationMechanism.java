@@ -1,9 +1,11 @@
 package io.github.aaronanderson.quarkus.mfa.runtime;
 
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.AUTH_ACTION_KEY;
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.AUTH_CLAIMS_KEY;
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.AUTH_STATUS_KEY;
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.AUTH_TOTP_URL_KEY;
+import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_ACTION_KEY;
+import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_CLAIMS_KEY;
+import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_STATUS_KEY;
+import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_TOTP_URL_KEY;
+import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_ACTION_HEADER;
+import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_STATUS_HEADER;
 import static io.vertx.core.http.HttpHeaders.LOCATION;
 
 import java.security.GeneralSecurityException;
@@ -20,9 +22,9 @@ import org.jose4j.jwt.NumericDate;
 
 import com.j256.twofactorauth.TimeBasedOneTimePasswordUtil;
 
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.FormFields;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.ViewAction;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.ViewStatus;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.FormFields;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewAction;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewStatus;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore.AuthenticationResult;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore.PasswordResetResult;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore.TotpCallback;
@@ -117,6 +119,8 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 		ViewAction action = ViewAction.get(authContext.getClaimValueAsString("action"));
 		if (ViewAction.LOGIN == action) {
 			handleLogin(context, authContext, mfaIdentityStore);
+		} else if (ViewAction.LOGOUT == action) {
+			handleLogout(context, authContext, mfaIdentityStore);
 		} else if (ViewAction.PASSWORD_RESET == action) {
 			handlePasswordReset(context, authContext, mfaIdentityStore);
 		} else if (ViewAction.VERIFY_TOTP == action) {
@@ -136,12 +140,6 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 			response.setStatusMessage("unexpected state");
 			context.response().end();
 		}
-
-//		response.setChunked(true);
-//		response.putHeader(CACHE_CONTROL, "no-store, no-cache, no-transform, must-revalidate, max-age=0");
-//		response.write("Login Action");
-//		context.response().end();
-
 	}
 
 	private void successfulLogin(RoutingContext context, JwtClaims authContext, Map<String, Object> attributes) {
@@ -156,6 +154,9 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 			log.debugf("login success - path: %s claims: %s ", path, authenticated.toJson());
 		}
 		loginManager.save(authenticated, context);
+		// zero page support
+		context.response().putHeader(AUTH_ACTION_HEADER, "login-success");
+
 		sendRedirect(context, path);
 	}
 
@@ -194,12 +195,29 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 				if (log.isDebugEnabled()) {
 					log.debugf("login redirect claims: %s", authContext.toJson());
 				}
+				// zero page support
+				context.response().putHeader(AUTH_ACTION_HEADER, authContext.getClaimValueAsString("action"));
+				context.response().putHeader(AUTH_STATUS_HEADER, authContext.getClaimValueAsString("status"));
+
 				loginManager.save(authContext, context);
 				sendRedirect(context, loginView);
 			}
 
 		}
 
+	}
+
+	private void handleLogout(RoutingContext context, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+		log.debugf("processing logout");
+		loginManager.clear(context);
+		if (log.isDebugEnabled()) {
+			log.debugf("login redirect claims: %s", authContext.toJson());
+		}
+		// zero page support
+		context.response().putHeader(AUTH_ACTION_HEADER, "logout-success");
+
+		loginManager.save(authContext, context);
+		sendRedirect(context, loginView);
 	}
 
 	private void registerTotp(String username, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
@@ -249,9 +267,10 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 					authContext.setClaim("status", ViewStatus.FAILED_POLICY);
 					log.debugf("password reset failed - password policy");
 				}
-				//zero page support
-				context.response().putHeader("X-Quarkus-MFA-Action", authContext.getClaimValueAsString("action"));
-				context.response().putHeader("X-Quarkus-MFA-Status", authContext.getClaimValueAsString("status"));
+
+				context.response().putHeader(AUTH_ACTION_HEADER, authContext.getClaimValueAsString("action"));
+				context.response().putHeader(AUTH_STATUS_HEADER, authContext.getClaimValueAsString("status"));
+
 				loginManager.save(authContext, context);
 				sendRedirect(context, loginView);
 			}
@@ -283,6 +302,10 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 				if (authResult == VerificationResult.FAILED) {
 					authContext.setClaim("status", ViewStatus.FAILED);
 				}
+
+				context.response().putHeader(AUTH_ACTION_HEADER, authContext.getClaimValueAsString("action"));
+				context.response().putHeader(AUTH_STATUS_HEADER, authContext.getClaimValueAsString("status"));
+
 				loginManager.save(authContext, context);
 				sendRedirect(context, loginView);
 			}
@@ -298,6 +321,9 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 			authContext.setClaim("action", ViewAction.VERIFY_TOTP);
 			authContext.unsetClaim("status");
 			authContext.unsetClaim("totp-url");
+
+			context.response().putHeader(AUTH_ACTION_HEADER, authContext.getClaimValueAsString("action"));
+
 			loginManager.save(authContext, context);
 			sendRedirect(context, loginView);
 		}

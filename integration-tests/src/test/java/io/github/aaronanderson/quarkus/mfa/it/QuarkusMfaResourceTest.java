@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import com.j256.twofactorauth.TimeBasedOneTimePasswordUtil;
 
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.FormFields;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.FormFields;
 import io.quarkus.arc.Arc;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.filter.cookie.CookieFilter;

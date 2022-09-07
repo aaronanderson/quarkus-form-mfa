@@ -22,9 +22,9 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.ViewAction;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthContext.ViewStatus;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewAction;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewStatus;
 import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
 import io.vertx.core.json.JsonObject;
 
@@ -36,15 +36,15 @@ public class QuarkusMFAEndpoint {
 	CurrentVertxRequest reqContext;
 
 	public ViewAction action() {
-		return reqContext.getCurrent().get(MfaAuthContext.AUTH_ACTION_KEY);
+		return reqContext.getCurrent().get(MfaAuthConstants.AUTH_ACTION_KEY);
 	}
 
 	public ViewStatus status() {
-		return reqContext.getCurrent().get(MfaAuthContext.AUTH_STATUS_KEY);
+		return reqContext.getCurrent().get(MfaAuthConstants.AUTH_STATUS_KEY);
 	}
 
 	public String totpURL() {
-		return reqContext.getCurrent().get(MfaAuthContext.AUTH_TOTP_URL_KEY);
+		return reqContext.getCurrent().get(MfaAuthConstants.AUTH_TOTP_URL_KEY);
 	}
 
 	@GET
