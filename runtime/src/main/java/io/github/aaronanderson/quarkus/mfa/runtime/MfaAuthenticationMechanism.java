@@ -249,6 +249,9 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 					authContext.setClaim("status", ViewStatus.FAILED_POLICY);
 					log.debugf("password reset failed - password policy");
 				}
+				//zero page support
+				context.response().putHeader("X-Quarkus-MFA-Action", authContext.getClaimValueAsString("action"));
+				context.response().putHeader("X-Quarkus-MFA-Status", authContext.getClaimValueAsString("status"));
 				loginManager.save(authContext, context);
 				sendRedirect(context, loginView);
 			}
