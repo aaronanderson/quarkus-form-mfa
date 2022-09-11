@@ -23,6 +23,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.MfaAuthContext;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewAction;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewStatus;
 import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
@@ -35,18 +36,6 @@ public class QuarkusMFAEndpoint {
 	@Inject
 	CurrentVertxRequest reqContext;
 
-	public ViewAction action() {
-		return reqContext.getCurrent().get(MfaAuthConstants.AUTH_ACTION_KEY);
-	}
-
-	public ViewStatus status() {
-		return reqContext.getCurrent().get(MfaAuthConstants.AUTH_STATUS_KEY);
-	}
-
-	public String totpURL() {
-		return reqContext.getCurrent().get(MfaAuthConstants.AUTH_TOTP_URL_KEY);
-	}
-
 	@GET
 	@Produces("application/json")
 	public String main() {
@@ -54,7 +43,6 @@ public class QuarkusMFAEndpoint {
 		result.put("main", true);
 		return result.encodePrettily();
 	}
-
 
 	@GET
 	@Path("public")
@@ -69,15 +57,15 @@ public class QuarkusMFAEndpoint {
 	@Path("mfa_login")
 	@Produces("application/json")
 	public String login() {
+		MfaAuthContext authContext = reqContext.getCurrent().get(MfaAuthConstants.AUTH_CONTEXT_KEY);
 		JsonObject result = new JsonObject();
-		result.put("action", action().toString());
-		if (status() != null) {
-			result.put("status", status().toString());
+		result.put("action", authContext.getViewAction().toString());
+		if (authContext.getViewStatus() != null) {
+			result.put("status", authContext.getViewStatus().toString());
 		}
-		if (totpURL() != null) {
-			result.put("totpURL", totpURL().toString());
+		if (authContext.getToptURL() != null) {
+			result.put("totpURL", authContext.getToptURL().toString());
 		}
-		//System.out.format("login - action: %s status: %s totpURL: %s\n", action(), status(), totpURL());
 		return result.encodePrettily();
 	}
 
@@ -85,9 +73,9 @@ public class QuarkusMFAEndpoint {
 	@Path("mfa_logout")
 	@Produces("application/json")
 	public String logout() {
+		MfaAuthContext authContext = reqContext.getCurrent().get(MfaAuthConstants.AUTH_CONTEXT_KEY);
 		JsonObject result = new JsonObject();
-		result.put("action", action().toString());
-		//System.out.format("logout - action: %s\n", action());
+		result.put("action", authContext.getViewAction().toString());
 		return result.encodePrettily();
 	}
 }

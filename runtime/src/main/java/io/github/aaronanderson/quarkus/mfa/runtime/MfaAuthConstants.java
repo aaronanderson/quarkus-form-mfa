@@ -7,9 +7,33 @@ import java.util.stream.Stream;
 
 public class MfaAuthConstants {
 	public static final String AUTH_CLAIMS_KEY = "quarkus_mfa_auth_claims";
-	public static final String AUTH_ACTION_KEY = "quarkus_mfa_auth_action";
-	public static final String AUTH_STATUS_KEY = "quarkus_mfa_auth_status";
-	public static final String AUTH_TOTP_URL_KEY = "quarkus_mfa_auth_topt_url";
+	public static final String AUTH_CONTEXT_KEY = "quarkus_mfa_auth_context";
+
+	public static class MfaAuthContext {
+
+		private final ViewAction viewAction;
+		private final ViewStatus viewStatus;
+		private final String toptURL;
+
+		public MfaAuthContext(ViewAction viewAction, ViewStatus viewStatus, String toptURL) {
+			this.viewAction = viewAction;
+			this.viewStatus = viewStatus;
+			this.toptURL = toptURL;
+		}
+
+		public ViewAction getViewAction() {
+			return viewAction;
+		}
+
+		public ViewStatus getViewStatus() {
+			return viewStatus;
+		}
+
+		public String getToptURL() {
+			return toptURL;
+		}
+
+	}
 
 	public static enum ViewAction {
 

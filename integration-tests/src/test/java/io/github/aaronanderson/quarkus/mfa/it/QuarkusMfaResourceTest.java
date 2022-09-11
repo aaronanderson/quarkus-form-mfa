@@ -143,8 +143,10 @@ public class QuarkusMfaResourceTest {
 	       .statusCode(200)
 	       .contentType("application/json")
 	       .body("action", Matchers.equalTo("login"))
-	       .body("status", not(hasValue(nullValue())))
-		   .body("path", Matchers.equalTo("/"));	 
+	       .body("status", nullValue())
+		   .body("path", Matchers.equalTo("/"))
+    	   .body("totp-url", nullValue())
+		   .body("exp",  not(nullValue()));
     }
     
     @Test
@@ -152,9 +154,9 @@ public class QuarkusMfaResourceTest {
     	 CookieFilter cookieFilter = new CookieFilter();
     	 String location = assertMainRedirect(cookieFilter);
     	 JsonObject request = new JsonObject().put("username", "jdoe1").put("password", "trustno1");
-    	 assertJsonAction(request.encode(), "verify-totp", null, false, cookieFilter);
+    	 assertJsonAction(request.encode(), "verify-totp", null,  cookieFilter);
     	 request = new JsonObject().put("passcode", getPasscode("jdoe1"));
-    	 assertJsonAction(request.encode(), "login", "success", false, cookieFilter);
+    	 assertJsonAction(request.encode(), "login", "success", false, true, cookieFilter);
     }
     
     
@@ -163,9 +165,9 @@ public class QuarkusMfaResourceTest {
     	 CookieFilter cookieFilter = new CookieFilter();
     	 String location = assertMainRedirect(cookieFilter);
     	 JsonObject request = new JsonObject().put("username", "jdoe1").put("password", "trustno1");
-    	 assertJsonAction(request.encode(), "verify-totp", null, false, cookieFilter);
+    	 assertJsonAction(request.encode(), "verify-totp", null, cookieFilter);
     	 request = new JsonObject().put("passcode", getPasscode("jdoe1"));
-    	 assertJsonAction(request.encode(), "login", "success", false, cookieFilter);
+    	 assertJsonAction(request.encode(), "login", "success", false, true, cookieFilter);
     	 given()
 			.filter(cookieFilter)
 	       .when()
@@ -175,7 +177,9 @@ public class QuarkusMfaResourceTest {
 	       .statusCode(200)
 	       .contentType("application/json")
 	       .body("action", Matchers.equalTo("logout"))
-	       .body("status", Matchers.equalTo("success"));        
+	       .body("status", Matchers.equalTo("success"))
+    	   .body("totp-url", nullValue())
+		   .body("exp",  nullValue());
    }
     
     
@@ -184,7 +188,7 @@ public class QuarkusMfaResourceTest {
    	 CookieFilter cookieFilter = new CookieFilter();
    	 String location = assertMainRedirect(cookieFilter);
    	 JsonObject request = new JsonObject().put("username", "jdoe3").put("password", "trustno1");
-	 assertJsonAction(request.encode(), "login", "account-locked", false, cookieFilter);
+	 assertJsonAction(request.encode(), "login", "account-locked", cookieFilter);
 	 
    }
 
@@ -299,7 +303,11 @@ public class QuarkusMfaResourceTest {
           .extract().header("Location");
 	}
 	
-	private void assertJsonAction(String body, String action, String status, boolean totpURL, CookieFilter cookieFilter) {
+	private void assertJsonAction(String body, String action, String status, CookieFilter cookieFilter) {
+		assertJsonAction(body, action, status, false, true, cookieFilter);
+		
+	}
+	private void assertJsonAction(String body, String action, String status, boolean totpURL, boolean exp, CookieFilter cookieFilter) {
 		 given()
 			.filter(cookieFilter)
 	       .when()
@@ -311,8 +319,9 @@ public class QuarkusMfaResourceTest {
 	       .statusCode(200)
 	       .contentType("application/json")
 	       .body("action", Matchers.equalTo(action))
-	       .body("status", status!=null? Matchers.equalTo(status): not(hasValue(nullValue())))
-		   .body("totp-url", totpURL? hasValue(nullValue()) : not(hasValue(nullValue())));
+	       .body("status", status!=null? Matchers.equalTo(status): nullValue())
+		   .body("totp-url", totpURL?  not(nullValue()): nullValue())
+		   .body("exp", exp ? not(nullValue()) : nullValue());
 	}
 	
 	

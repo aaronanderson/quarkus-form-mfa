@@ -1,27 +1,28 @@
 package io.github.aaronanderson.quarkus.mfa.runtime;
 
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_ACTION_KEY;
 import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_CLAIMS_KEY;
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_STATUS_KEY;
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_TOTP_URL_KEY;
-import static io.vertx.core.http.HttpHeaders.LOCATION;
+import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_CONTEXT_KEY;
 import static io.vertx.core.http.HttpHeaders.CONTENT_TYPE;
+import static io.vertx.core.http.HttpHeaders.LOCATION;
 
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
 import org.jboss.logging.Logger;
 import org.jose4j.jwt.JwtClaims;
+import org.jose4j.jwt.MalformedClaimException;
 import org.jose4j.jwt.NumericDate;
 
 import com.j256.twofactorauth.TimeBasedOneTimePasswordUtil;
 
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.FormFields;
+import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.MfaAuthContext;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewAction;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewStatus;
 import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore.AuthenticationResult;
@@ -63,8 +64,9 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 	public Uni<SecurityIdentity> authenticate(RoutingContext context, IdentityProviderManager identityProviderManager) {
 		String path = context.request().path();
 		log.debugf("authenticating %s", path);
+		boolean logoutAttempt =  logoutView.equals(path) || (loginAction.equals(path) && context.request().params().contains("logout"));
 		JwtClaims claims = loginManager.restore(context);
-		if (loginManager.hasSubject(claims) && !logoutView.equals(path)) {
+		if (loginManager.hasSubject(claims) && !logoutAttempt) {
 			return restoreIdentity(claims, context, identityProviderManager);
 		}
 		if (claims == null || loginManager.newCookieNeeded(claims)) {
@@ -76,17 +78,13 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 			if (!claims.hasClaim("action")) {
 				claims.setClaim("action", ViewAction.LOGIN);
 			}
-			context.put(AUTH_ACTION_KEY, ViewAction.get(claims.getClaimValueAsString("action")));
-			context.put(AUTH_STATUS_KEY, ViewStatus.get(claims.getClaimValueAsString("status")));
-			if (claims.hasClaim("totp-url")) {
-				context.put(AUTH_TOTP_URL_KEY, claims.getClaimValueAsString("totp-url"));
-			}
+			context.put(AUTH_CONTEXT_KEY, new MfaAuthContext(ViewAction.get(claims.getClaimValueAsString("action")), ViewStatus.get(claims.getClaimValueAsString("status")), claims.getClaimValueAsString("totp-url")));
 			loginManager.save(claims, context);
 		} else if (logoutView.equals(path)) {
 			if (!claims.hasClaim("action")) {
 				claims.setClaim("action", ViewAction.LOGOUT.toString());
 			}
-			context.put(AUTH_ACTION_KEY, ViewAction.get(claims.getClaimValueAsString("action")));
+			context.put(AUTH_CONTEXT_KEY, new MfaAuthContext(ViewAction.get(claims.getClaimValueAsString("action")), null, null));
 			loginManager.clear(context);
 		} else if (loginAction.equals(path)) {
 			if (!claims.hasClaim("action")) { // zero form login
@@ -160,7 +158,10 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 		JsonObject response = new JsonObject();
 		response.put("action", authContext.getClaimValueAsString("action"));
 		response.put("status", authContext.getClaimValueAsString("status"));
-		response.put("path", authContext.getClaimValueAsString("path"));
+		Optional.ofNullable(authContext.getClaimValueAsString("path")).ifPresent(c -> response.put("path", c));
+		Optional.ofNullable(authContext.getClaimValueAsString("totp-url")).ifPresent(c -> response.put("totp-url", c));
+		Optional.ofNullable(authContext.getClaimValue("exp")).ifPresent(c -> response.put("exp", c));
+
 		context.response().setStatusCode(200);
 		context.response().putHeader(CONTENT_TYPE, "application/json");
 		context.response().setChunked(true);
@@ -184,6 +185,7 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 		if (isJson) {
 			authContext.setClaim("action", "login");
 			authContext.setClaim("status", "success");
+			authContext.setClaim("exp", authenticated.getClaimValue("exp"));
 			sendJson(context, authContext);
 		} else {
 			sendRedirect(context, path);
