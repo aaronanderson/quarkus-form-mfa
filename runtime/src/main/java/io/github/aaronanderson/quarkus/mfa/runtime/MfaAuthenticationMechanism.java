@@ -4,9 +4,8 @@ import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_
 import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_CLAIMS_KEY;
 import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_STATUS_KEY;
 import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_TOTP_URL_KEY;
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_ACTION_HEADER;
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_STATUS_HEADER;
 import static io.vertx.core.http.HttpHeaders.LOCATION;
+import static io.vertx.core.http.HttpHeaders.CONTENT_TYPE;
 
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
@@ -39,7 +38,9 @@ import io.quarkus.vertx.http.runtime.security.HttpAuthenticationMechanism;
 import io.quarkus.vertx.http.runtime.security.HttpCredentialTransport;
 import io.quarkus.vertx.http.runtime.security.HttpSecurityUtils;
 import io.smallrye.mutiny.Uni;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
 public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
@@ -116,33 +117,58 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 	public void action(RoutingContext context) {
 		MfaIdentityStore mfaIdentityStore = Arc.container().instance(MfaIdentityStore.class).get();
 		JwtClaims authContext = context.get(AUTH_CLAIMS_KEY);
-		ViewAction action = ViewAction.get(authContext.getClaimValueAsString("action"));
-		if (ViewAction.LOGIN == action) {
-			handleLogin(context, authContext, mfaIdentityStore);
-		} else if (ViewAction.LOGOUT == action) {
-			handleLogout(context, authContext, mfaIdentityStore);
-		} else if (ViewAction.PASSWORD_RESET == action) {
-			handlePasswordReset(context, authContext, mfaIdentityStore);
-		} else if (ViewAction.VERIFY_TOTP == action) {
-			handleVerifyTotp(context, authContext, mfaIdentityStore);
-		} else if (ViewAction.REGISTER_TOTP == action) {
-			if (context.request().getParam(FormFields.PASSCODE.toString()) != null) {
-				// allow zero page/direct passcode verification after registration
-				authContext.setClaim("action", ViewAction.VERIFY_TOTP);
-				handleVerifyTotp(context, authContext, mfaIdentityStore);
+		boolean isJson = "application/json".equals(context.getAcceptableContentType());
+
+		if (context.request().method() == HttpMethod.GET) {
+			if (context.request().params().contains("logout")) {
+				handleLogout(context, isJson, authContext);
 			} else {
-				handleRegisterTotp(context, authContext, mfaIdentityStore);
+				sendJson(context, authContext);
 			}
 		} else {
-			HttpServerResponse response = context.response();
-			response.setStatusCode(500);
-			log.errorf("unexpected state %s", authContext.getClaimValueAsString("action"));
-			response.setStatusMessage("unexpected state");
-			context.response().end();
+			// authentication claims would only be empty if the user was already authenticated
+			ViewAction action = ViewAction.get(authContext.getClaimValueAsString("action"));
+
+			if (ViewAction.LOGIN == action) {
+				handleLogin(context, isJson, authContext, mfaIdentityStore);
+			} else if (ViewAction.LOGOUT == action) {
+				handleLogout(context, isJson, authContext);
+			} else if (ViewAction.PASSWORD_RESET == action) {
+				handlePasswordReset(context, isJson, authContext, mfaIdentityStore);
+			} else if (ViewAction.VERIFY_TOTP == action) {
+				handleVerifyTotp(context, isJson, authContext, mfaIdentityStore);
+			} else if (ViewAction.REGISTER_TOTP == action) {
+				if (context.request().getParam(FormFields.PASSCODE.toString()) != null) {
+					// allow zero page/direct passcode verification after registration
+					authContext.setClaim("action", ViewAction.VERIFY_TOTP);
+					handleVerifyTotp(context, isJson, authContext, mfaIdentityStore);
+				} else {
+					handleRegisterTotp(context, isJson, authContext);
+				}
+			} else {
+				HttpServerResponse response = context.response();
+				response.setStatusCode(500);
+				log.errorf("unexpected state %s", authContext.getClaimValueAsString("action"));
+				response.setStatusMessage("unexpected state");
+				context.response().end();
+			}
 		}
+
 	}
 
-	private void successfulLogin(RoutingContext context, JwtClaims authContext, Map<String, Object> attributes) {
+	private void sendJson(RoutingContext context, JwtClaims authContext) {
+		JsonObject response = new JsonObject();
+		response.put("action", authContext.getClaimValueAsString("action"));
+		response.put("status", authContext.getClaimValueAsString("status"));
+		response.put("path", authContext.getClaimValueAsString("path"));
+		context.response().setStatusCode(200);
+		context.response().putHeader(CONTENT_TYPE, "application/json");
+		context.response().setChunked(true);
+		context.response().write(response.toBuffer());
+		context.response().end();
+	}
+
+	private void successfulLogin(RoutingContext context, boolean isJson, JwtClaims authContext, Map<String, Object> attributes) {
 		String path = authContext.getClaimValueAsString("path");
 		JwtClaims authenticated = new JwtClaims();
 		authenticated.setIssuedAt(NumericDate.now());
@@ -154,23 +180,37 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 			log.debugf("login success - path: %s claims: %s ", path, authenticated.toJson());
 		}
 		loginManager.save(authenticated, context);
-		// zero page support
-		context.response().putHeader(AUTH_ACTION_HEADER, "login-success");
 
-		sendRedirect(context, path);
+		if (isJson) {
+			authContext.setClaim("action", "login");
+			authContext.setClaim("status", "success");
+			sendJson(context, authContext);
+		} else {
+			sendRedirect(context, path);
+		}
 	}
 
-	private void handleLogin(RoutingContext context, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+	private void handleLogin(RoutingContext context, boolean isJson, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
 		log.debugf("processing login");
 		Map<String, Object> attributes = new HashMap<>();
-		String username = context.request().getFormAttribute(FormFields.USERNAME.toString());
-		String password = context.request().getFormAttribute(FormFields.PASSWORD.toString());
+
+		String username = null;
+		String password = null;
+		if (isJson) {
+			JsonObject request = context.body().asJsonObject();
+			username = request.getString(FormFields.USERNAME.toString());
+			password = request.getString(FormFields.PASSWORD.toString());
+		} else {
+			username = context.request().getFormAttribute(FormFields.USERNAME.toString());
+			password = context.request().getFormAttribute(FormFields.PASSWORD.toString());
+
+		}
 		if (username == null || password == null) {
-			loginRedirect(context, authContext);
+			sendLogin(context, isJson, authContext);
 		} else {
 			AuthenticationResult authResult = mfaIdentityStore.authenticate(username, new PasswordCredential(password.toCharArray()), attributes);
 			if (authResult == AuthenticationResult.SUCCESS) {
-				successfulLogin(context, authContext, attributes);
+				successfulLogin(context, isJson, authContext, attributes);
 			} else {
 				if (authResult == AuthenticationResult.SUCCESS_VERIFY_TOTP) {
 					authContext.setClaim("action", ViewAction.VERIFY_TOTP);
@@ -195,29 +235,34 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 				if (log.isDebugEnabled()) {
 					log.debugf("login redirect claims: %s", authContext.toJson());
 				}
-				// zero page support
-				context.response().putHeader(AUTH_ACTION_HEADER, authContext.getClaimValueAsString("action"));
-				context.response().putHeader(AUTH_STATUS_HEADER, authContext.getClaimValueAsString("status"));
 
 				loginManager.save(authContext, context);
-				sendRedirect(context, loginView);
+				if (isJson) {
+					sendJson(context, authContext);
+				} else {
+					sendRedirect(context, loginView);
+				}
+
 			}
 
 		}
 
 	}
 
-	private void handleLogout(RoutingContext context, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+	private void handleLogout(RoutingContext context, boolean isJson, JwtClaims authContext) {
 		log.debugf("processing logout");
 		loginManager.clear(context);
 		if (log.isDebugEnabled()) {
 			log.debugf("login redirect claims: %s", authContext.toJson());
 		}
-		// zero page support
-		context.response().putHeader(AUTH_ACTION_HEADER, "logout-success");
-
-		loginManager.save(authContext, context);
-		sendRedirect(context, loginView);
+		if (isJson) {
+			authContext = new JwtClaims(); // could be null if the user is authenticated
+			authContext.setClaim("action", "logout");
+			authContext.setClaim("status", "success");
+			sendJson(context, authContext);
+		} else {
+			sendRedirect(context, loginView);
+		}
 	}
 
 	private void registerTotp(String username, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
@@ -231,26 +276,38 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 
 	}
 
-	private void loginRedirect(RoutingContext context, JwtClaims authContext) {
+	private void sendLogin(RoutingContext context, boolean isJson, JwtClaims authContext) {
 		authContext.setClaim("action", ViewAction.LOGIN);
 		authContext.unsetClaim("status");
 		loginManager.save(authContext, context);
-		sendRedirect(context, loginView);
+		if (isJson) {
+			sendJson(context, authContext);
+		} else {
+			sendRedirect(context, loginView);
+		}
 
 	}
 
-	private void handlePasswordReset(RoutingContext context, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+	private void handlePasswordReset(RoutingContext context, boolean isJson, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
 		log.debugf("processing password reset");
 		String username = authContext.getClaimValueAsString("auth-sub");
-		String currentPassword = context.request().getFormAttribute(FormFields.PASSWORD.toString());
-		String newPassword = context.request().getFormAttribute(FormFields.NEW_PASSWORD.toString());
+		String currentPassword = null;
+		String newPassword = null;
+		if (isJson) {
+			JsonObject request = context.body().asJsonObject();
+			currentPassword = request.getString(FormFields.PASSWORD.toString());
+			newPassword = request.getString(FormFields.NEW_PASSWORD.toString());
+		} else {
+			currentPassword = context.request().getFormAttribute(FormFields.PASSWORD.toString());
+			newPassword = context.request().getFormAttribute(FormFields.NEW_PASSWORD.toString());
+		}
 		if (username == null || currentPassword == null || newPassword == null) {
-			loginRedirect(context, authContext);
+			sendLogin(context, isJson, authContext);
 		} else {
 			Map<String, Object> attributes = new HashMap<>();
 			PasswordResetResult authResult = mfaIdentityStore.passwordReset(username, new PasswordCredential(currentPassword.toCharArray()), new PasswordCredential(newPassword.toCharArray()), attributes);
 			if (authResult == PasswordResetResult.SUCCESS) {
-				successfulLogin(context, authContext, attributes);
+				successfulLogin(context, isJson, authContext, attributes);
 			} else {
 				if (authResult == PasswordResetResult.SUCCESS_VERIFY_TOTP) {
 					authContext.setClaim("action", ViewAction.VERIFY_TOTP);
@@ -268,27 +325,35 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 					log.debugf("password reset failed - password policy");
 				}
 
-				context.response().putHeader(AUTH_ACTION_HEADER, authContext.getClaimValueAsString("action"));
-				context.response().putHeader(AUTH_STATUS_HEADER, authContext.getClaimValueAsString("status"));
-
 				loginManager.save(authContext, context);
-				sendRedirect(context, loginView);
+				if (isJson) {
+					sendJson(context, authContext);
+				} else {
+					sendRedirect(context, loginView);
+				}
 			}
 		}
 	}
 
-	private void handleVerifyTotp(RoutingContext context, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+	private void handleVerifyTotp(RoutingContext context, boolean isJson, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
 		log.debugf("processing verify TOTP");
 		String username = authContext.getClaimValueAsString("auth-sub");
-		String passcode = context.request().getFormAttribute(FormFields.PASSCODE.toString());
+		String passcode = null;
+		if (isJson) {
+			JsonObject request = context.body().asJsonObject();
+			passcode = request.getString(FormFields.PASSCODE.toString());
+		} else {
+			passcode = context.request().getFormAttribute(FormFields.PASSCODE.toString());
+		}
 		if (username == null || passcode == null) {
-			loginRedirect(context, authContext);
+			sendLogin(context, isJson, authContext);
 		} else {
 			Map<String, Object> attributes = new HashMap<>();
+			final String fpasscode = passcode;
 			TotpCallback callback = p -> {
 				try {
 					String currentPasscode = TimeBasedOneTimePasswordUtil.generateCurrentNumberString(new String(p.getPassword()));
-					return currentPasscode.equals(passcode);
+					return currentPasscode.equals(fpasscode);
 				} catch (GeneralSecurityException e) {
 					log.errorf(e, "passcode error");
 					return false;
@@ -297,35 +362,38 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 			};
 			VerificationResult authResult = mfaIdentityStore.verifyTotp(username, callback, attributes);
 			if (authResult == VerificationResult.SUCCESS) {
-				successfulLogin(context, authContext, attributes);
+				successfulLogin(context, isJson, authContext, attributes);
 			} else {
 				if (authResult == VerificationResult.FAILED) {
 					authContext.setClaim("status", ViewStatus.FAILED);
 				}
 
-				context.response().putHeader(AUTH_ACTION_HEADER, authContext.getClaimValueAsString("action"));
-				context.response().putHeader(AUTH_STATUS_HEADER, authContext.getClaimValueAsString("status"));
-
 				loginManager.save(authContext, context);
-				sendRedirect(context, loginView);
+				if (isJson) {
+					sendJson(context, authContext);
+				} else {
+					sendRedirect(context, loginView);
+				}
 			}
 		}
 	}
 
-	private void handleRegisterTotp(RoutingContext context, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+	private void handleRegisterTotp(RoutingContext context, boolean isJson, JwtClaims authContext) {
 		log.debugf("processing register TOTP"); // redirect back to login page. Could be handled client side as well
 		String username = authContext.getClaimValueAsString("auth-sub");
 		if (username == null) {
-			loginRedirect(context, authContext);
+			sendLogin(context, isJson, authContext);
 		} else {
 			authContext.setClaim("action", ViewAction.VERIFY_TOTP);
 			authContext.unsetClaim("status");
 			authContext.unsetClaim("totp-url");
 
-			context.response().putHeader(AUTH_ACTION_HEADER, authContext.getClaimValueAsString("action"));
-
 			loginManager.save(authContext, context);
-			sendRedirect(context, loginView);
+			if (isJson) {
+				sendJson(context, authContext);
+			} else {
+				sendRedirect(context, loginView);
+			}
 		}
 	}
 

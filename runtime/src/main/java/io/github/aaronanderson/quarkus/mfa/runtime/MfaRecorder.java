@@ -52,7 +52,8 @@ public class MfaRecorder {
 		Router router = routerValue.getValue();
 		BodyHandler bodyHandler = BodyHandler.create();
 		String loginAction = buildConfig.loginAction.startsWith("/") ? buildConfig.loginAction : "/" + buildConfig.loginAction;
-		router.post(loginAction).handler(bodyHandler).handler(authMech::action);
+		router.post(loginAction).produces("text/html").produces("application/json").handler(bodyHandler).handler(authMech::action);
+		router.get(loginAction).produces("application/json").handler(authMech::action);
 	}
 
 	public Supplier<MfaAuthenticationMechanism> setupMfaAuthenticationMechanism(MfaBuildTimeConfig buildConfig) {    	

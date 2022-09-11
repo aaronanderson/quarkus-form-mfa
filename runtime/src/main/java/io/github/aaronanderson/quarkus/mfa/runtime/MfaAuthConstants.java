@@ -10,8 +10,6 @@ public class MfaAuthConstants {
 	public static final String AUTH_ACTION_KEY = "quarkus_mfa_auth_action";
 	public static final String AUTH_STATUS_KEY = "quarkus_mfa_auth_status";
 	public static final String AUTH_TOTP_URL_KEY = "quarkus_mfa_auth_topt_url";
-	public static final String AUTH_ACTION_HEADER =  "x-quarkus-mfa-action";
-	public static final String AUTH_STATUS_HEADER =  "x-quarkus-mfa-status";
 
 	public static enum ViewAction {
 
