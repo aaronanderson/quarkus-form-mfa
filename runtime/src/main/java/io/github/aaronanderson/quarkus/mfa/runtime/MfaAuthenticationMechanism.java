@@ -64,9 +64,10 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 	public Uni<SecurityIdentity> authenticate(RoutingContext context, IdentityProviderManager identityProviderManager) {
 		String path = context.request().path();
 		log.debugf("authenticating %s", path);
-		boolean logoutAttempt =  logoutView.equals(path) || (loginAction.equals(path) && context.request().params().contains("logout"));
+		boolean logoutAttempt = logoutView.equals(path) || (loginAction.equals(path) && context.request().params().contains("logout"));
 		JwtClaims claims = loginManager.restore(context);
 		if (loginManager.hasSubject(claims) && !logoutAttempt) {
+			//TODO explorer chaining this Uni together with the code below so that a re-authentication is attempted instead of a 403 if the SecurityIdentity is null.
 			return restoreIdentity(claims, context, identityProviderManager);
 		}
 		if (claims == null || loginManager.newCookieNeeded(claims)) {
@@ -105,7 +106,7 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 		return ret.onItem().invoke(new Consumer<SecurityIdentity>() {
 			@Override
 			public void accept(SecurityIdentity securityIdentity) {
-				if (loginManager.newCookieNeeded(claims)) {
+				if (securityIdentity != null && loginManager.newCookieNeeded(claims)) {
 					loginManager.save(claims, context);
 				}
 			}
@@ -114,6 +115,9 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 
 	public void action(RoutingContext context) {
 		MfaIdentityStore mfaIdentityStore = Arc.container().instance(MfaIdentityStore.class).get();
+		if (mfaIdentityStore == null) {
+			throw new IllegalStateException("MfaIdentityStore implementation is unavailable");
+		}
 		JwtClaims authContext = context.get(AUTH_CLAIMS_KEY);
 		boolean isJson = "application/json".equals(context.getAcceptableContentType());
 
