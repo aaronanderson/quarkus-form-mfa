@@ -11,8 +11,6 @@ import org.jboss.logging.Logger;
 import org.jose4j.keys.AesKey;
 import org.jose4j.lang.ByteUtil;
 
-import io.quarkus.arc.Arc;
-import io.quarkus.arc.InstanceHandle;
 import io.quarkus.arc.runtime.BeanContainer;
 import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.annotations.Recorder;
@@ -31,19 +29,19 @@ public class MfaRecorder {
 	// the temp encryption key, persistent across dev mode restarts
 	static volatile String encryptionKey;
 
-	public MfaRecorder(RuntimeValue<MfaRunTimeConfig> config) {		
+	public MfaRecorder(RuntimeValue<MfaRunTimeConfig> config) {
 		this.config = config;
 	}
-	
-	//automatically add MFA endpoints to the authentication policy to allow anonymous access.
+
+	// automatically add MFA endpoints to the authentication policy to allow anonymous access.
 	public void initPermissions(MfaBuildTimeConfig mfaBuildTimeConfig, HttpBuildTimeConfig httpBuildTimeConfig) {
-    	PolicyMappingConfig config = new PolicyMappingConfig();
-    	config.enabled= Optional.of(true);
-    	config.methods = Optional.of(List.of("GET", "POST"));
-    	config.paths = Optional.of(List.of(mfaBuildTimeConfig.loginView, mfaBuildTimeConfig.logoutView,mfaBuildTimeConfig.loginAction ));
-    	config.policy= "permit";
-    	config.authMechanism= Optional.empty();
-    	httpBuildTimeConfig.auth.permissions.put("quarkus_mfa", config);
+		PolicyMappingConfig config = new PolicyMappingConfig();
+		config.enabled = Optional.of(true);
+		config.methods = Optional.of(List.of("GET", "POST"));
+		config.paths = Optional.of(List.of(mfaBuildTimeConfig.loginView, mfaBuildTimeConfig.logoutView, mfaBuildTimeConfig.loginAction));
+		config.policy = "permit";
+		config.authMechanism = Optional.empty();
+		httpBuildTimeConfig.auth.permissions.put("quarkus_mfa", config);
 
 	}
 
@@ -56,7 +54,7 @@ public class MfaRecorder {
 		router.get(loginAction).produces("application/json").handler(authMech::action);
 	}
 
-	public Supplier<MfaAuthenticationMechanism> setupMfaAuthenticationMechanism(MfaBuildTimeConfig buildConfig) {    	
+	public Supplier<MfaAuthenticationMechanism> setupMfaAuthenticationMechanism(MfaBuildTimeConfig buildConfig) {
 		return new Supplier<MfaAuthenticationMechanism>() {
 			@Override
 			public MfaAuthenticationMechanism get() {
@@ -79,6 +77,15 @@ public class MfaRecorder {
 				String logoutView = buildConfig.logoutView.startsWith("/") ? buildConfig.logoutView : "/" + buildConfig.logoutView;
 				String loginAction = buildConfig.loginAction.startsWith("/") ? buildConfig.loginAction : "/" + buildConfig.loginAction;
 				return new MfaAuthenticationMechanism(loginView, logoutView, loginAction, loginManager);
+			}
+		};
+	}
+
+	public Supplier<MfaIdentityProvider> setupMfaIdentityProvider() {
+		return new Supplier<MfaIdentityProvider>() {
+			@Override
+			public MfaIdentityProvider get() {
+				return new MfaIdentityProvider();
 			}
 		};
 	}

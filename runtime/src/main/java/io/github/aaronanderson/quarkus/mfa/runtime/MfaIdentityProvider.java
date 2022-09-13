@@ -1,9 +1,10 @@
 package io.github.aaronanderson.quarkus.mfa.runtime;
 
-import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Singleton;
 
 import org.jose4j.jwt.MalformedClaimException;
 
+import io.quarkus.arc.Unremovable;
 import io.quarkus.security.identity.AuthenticationRequestContext;
 import io.quarkus.security.identity.IdentityProvider;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -14,8 +15,9 @@ import io.smallrye.mutiny.Uni;
 /**
  * MFA IdentityProvider
  */
-//IdentityProvider is ignored if annotated with @DefaultBean so overriding implementations will need to use the @Alternative/@Priority combination.
-@ApplicationScoped
+//IdentityProvider is ignored if annotated with @DefaultBean because there other default IdentityProvider implementations available. Overriding implementations will need to use the @Alternative/@Priority combination.
+@Unremovable
+@Singleton
 public class MfaIdentityProvider implements IdentityProvider<MfaAuthenticationRequest> {
 
 	@Override
