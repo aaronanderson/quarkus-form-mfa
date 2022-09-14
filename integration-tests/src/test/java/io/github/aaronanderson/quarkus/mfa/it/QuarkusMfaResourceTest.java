@@ -49,6 +49,18 @@ public class QuarkusMfaResourceTest {
     }
     
     @Test
+    public void testLoginAfterAuthenticationLogin() throws GeneralSecurityException {
+    	 CookieFilter cookieFilter = new CookieFilter();
+    	 String location = assertMainRedirect(cookieFilter);
+    	 assertLoginPage(location,"login", null,  cookieFilter);
+         location = assertLoginAction("jdoe1", "trustno1", cookieFilter);
+         assertLoginPage(location, "verify-totp", null, cookieFilter);
+         location = assertVerifyAction("jdoe1", cookieFilter);
+         assertMainAuthenticated(location, cookieFilter);
+         assertLoginPage("/mfa_login","login", null,  cookieFilter);
+    }
+    
+    @Test
     public void testLogout() throws GeneralSecurityException {
     	 CookieFilter cookieFilter = new CookieFilter();
     	 String location = assertMainRedirect(cookieFilter);

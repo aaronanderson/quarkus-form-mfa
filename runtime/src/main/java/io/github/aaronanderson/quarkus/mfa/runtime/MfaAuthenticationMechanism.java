@@ -64,10 +64,11 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 	public Uni<SecurityIdentity> authenticate(RoutingContext context, IdentityProviderManager identityProviderManager) {
 		String path = context.request().path();
 		log.debugf("authenticating %s", path);
+		boolean loginAttempt = loginView.equals(path);
 		boolean logoutAttempt = logoutView.equals(path) || (loginAction.equals(path) && context.request().params().contains("logout"));
 		JwtClaims claims = loginManager.restore(context);
-		if (loginManager.hasSubject(claims) && !logoutAttempt) {
-			//TODO explorer chaining this Uni together with the code below so that a re-authentication is attempted instead of a 403 if the SecurityIdentity is null.
+		if (loginManager.hasSubject(claims) && !logoutAttempt && !loginAttempt) {
+			// TODO explorer chaining this Uni together with the code below so that a re-authentication is attempted instead of a 403 if the SecurityIdentity is null.
 			return restoreIdentity(claims, context, identityProviderManager);
 		}
 		if (claims == null || loginManager.newCookieNeeded(claims)) {
@@ -75,13 +76,13 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 		}
 		context.put(AUTH_CLAIMS_KEY, claims);
 
-		if (loginView.equals(path)) {
+		if (loginAttempt) {
 			if (!claims.hasClaim("action")) {
 				claims.setClaim("action", ViewAction.LOGIN);
 			}
 			context.put(AUTH_CONTEXT_KEY, new MfaAuthContext(ViewAction.get(claims.getClaimValueAsString("action")), ViewStatus.get(claims.getClaimValueAsString("status")), claims.getClaimValueAsString("totp-url")));
 			loginManager.save(claims, context);
-		} else if (logoutView.equals(path)) {
+		} else if (logoutAttempt) {
 			if (!claims.hasClaim("action")) {
 				claims.setClaim("action", ViewAction.LOGOUT.toString());
 			}
