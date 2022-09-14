@@ -7,11 +7,11 @@ A [Quarkus](https://quarkus.io/) extension that provides enhanced form based aut
 ## Features
 The Quarkus MFA extension is similar to the built-in [form based authentication mechanism](https://quarkus.io/guides/security-built-in-authentication#form-auth) and it provides the following features:
 
-* Encrpyted cookies are used to track authentication state, similar to the form based authentication mechanism
+* An encrypted cookie is used to track authentication state, similar to the form based authentication mechanism
 * A [JWE](https://en.wikipedia.org/wiki/JSON_Web_Encryption) [JWT](https://en.wikipedia.org/wiki/JSON_Web_Token), similar to the OIDC ID Token except encrypted, is saved as a cookie and is used to track authentication state.
 * As a user proceeds through the authentication flow the authentication context JWE is eventally upgraded to an authenticated session cookie, similar to the OIDC extension.
 * Time Based One-Time Password ([TOTP](https://en.wikipedia.org/wiki/Time-based_one-time_password)) support
-* Plugable [Identity Store](quarkus-mfa/src/main/java/io/github/aaronanderson/quarkus/mfa/runtime/MfaIdentityStore.java) implementations allow interactions with backend Cloud database user stores
+* Plugable [Identity Store](quarkus-mfa/src/main/java/io/github/aaronanderson/quarkus/mfa/runtime/MfaIdentityStore.java) implementations allow interactions with back-end Cloud database user stores
 * Account Lock
 * Password Reset
 * TOTP QR Code Key Registration
