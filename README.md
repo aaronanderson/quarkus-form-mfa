@@ -11,7 +11,7 @@ The Quarkus MFA extension is similar to the built-in [form based authentication 
 * A [JWE](https://en.wikipedia.org/wiki/JSON_Web_Encryption) [JWT](https://en.wikipedia.org/wiki/JSON_Web_Token), similar to the OIDC ID Token except encrypted, is saved as a cookie and is used to track authentication state.
 * As a user proceeds through the authentication flow the authentication context JWE is eventally upgraded to an authenticated session cookie, similar to the OIDC extension.
 * Time Based One-Time Password ([TOTP](https://en.wikipedia.org/wiki/Time-based_one-time_password)) support
-* Plugable [Identity Store](quarkus-mfa/src/main/java/io/github/aaronanderson/quarkus/mfa/runtime/MfaIdentityStore.java) implementations allow interactions with back-end Cloud database user stores
+* Plugable [Identity Store](runtime/src/main/java/io/github/aaronanderson/quarkus/mfa/runtime/MfaIdentityStore.java) implementations allow interactions with back-end Cloud database user stores
 * Account Lock
 * Password Reset
 * TOTP QR Code Key Registration
@@ -36,6 +36,6 @@ The Quarkus MFA extension is similar to the built-in [form based authentication 
      </dependency>
     ```
 
-1. Create an [MFA Identity Store](quarkus-mfa/src/main/java/io/github/aaronanderson/quarkus/mfa/runtime/MfaIdentityStore.java) implementation. This [TestMfaIdentityStore.java](quarkus-mfa-integration-tests/src/main/java/io/github/aaronanderson/quarkus/mfa/it/TestMfaIdentityStore.java) example can be used as a reference.
+1. Create an [MFA Identity Store](runtime/src/main/java/io/github/aaronanderson/quarkus/mfa/runtime/MfaIdentityStore.java) implementation. This [TestMfaIdentityStore.java](integration-tests/src/main/java/io/github/aaronanderson/quarkus/mfa/it/TestMfaIdentityStore.java) example can be used as a reference.
 
-1. Create login views or use SPA javascript to perform authentication actions like the ones performed in the [integration tests](quarkus-mfa-integration-tests/src/test/java/io/github/aaronanderson/quarkus/mfa/it/QuarkusMfaResourceTest.java)
+1. Create login views or use SPA javascript to perform authentication actions like the ones performed in the [integration tests](integration-tests/src/test/java/io/github/aaronanderson/quarkus/mfa/it/QuarkusMfaResourceTest.java)
