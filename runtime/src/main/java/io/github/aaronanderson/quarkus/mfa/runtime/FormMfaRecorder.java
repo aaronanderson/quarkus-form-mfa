@@ -20,21 +20,21 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 
 @Recorder
-public class MfaRecorder {
+public class FormMfaRecorder {
 
-	private static final Logger log = Logger.getLogger(MfaRecorder.class);
+	private static final Logger log = Logger.getLogger(FormMfaRecorder.class);
 
-	final RuntimeValue<MfaRunTimeConfig> config;
+	final RuntimeValue<FormMfaRunTimeConfig> config;
 
 	// the temp encryption key, persistent across dev mode restarts
 	static volatile String encryptionKey;
 
-	public MfaRecorder(RuntimeValue<MfaRunTimeConfig> config) {
+	public FormMfaRecorder(RuntimeValue<FormMfaRunTimeConfig> config) {
 		this.config = config;
 	}
 
 	// automatically add MFA endpoints to the authentication policy to allow anonymous access.
-	public void initPermissions(MfaBuildTimeConfig mfaBuildTimeConfig, HttpBuildTimeConfig httpBuildTimeConfig) {
+	public void initPermissions(FormMfaBuildTimeConfig mfaBuildTimeConfig, HttpBuildTimeConfig httpBuildTimeConfig) {
 		PolicyMappingConfig config = new PolicyMappingConfig();
 		config.enabled = Optional.of(true);
 		config.methods = Optional.of(List.of("GET", "POST"));
@@ -45,8 +45,8 @@ public class MfaRecorder {
 
 	}
 
-	public void setupRoutes(BeanContainer beanContainer, MfaBuildTimeConfig buildConfig, RuntimeValue<Router> routerValue) {
-		MfaAuthenticationMechanism authMech = beanContainer.instance(MfaAuthenticationMechanism.class);
+	public void setupRoutes(BeanContainer beanContainer, FormMfaBuildTimeConfig buildConfig, RuntimeValue<Router> routerValue) {
+		FormMfaAuthenticationMechanism authMech = beanContainer.instance(FormMfaAuthenticationMechanism.class);
 		Router router = routerValue.getValue();
 		BodyHandler bodyHandler = BodyHandler.create();
 		String loginAction = buildConfig.loginAction.startsWith("/") ? buildConfig.loginAction : "/" + buildConfig.loginAction;
@@ -54,10 +54,10 @@ public class MfaRecorder {
 		router.get(loginAction).produces("application/json").handler(authMech::action);
 	}
 
-	public Supplier<MfaAuthenticationMechanism> setupMfaAuthenticationMechanism(MfaBuildTimeConfig buildConfig) {
-		return new Supplier<MfaAuthenticationMechanism>() {
+	public Supplier<FormMfaAuthenticationMechanism> setupMfaAuthenticationMechanism(FormMfaBuildTimeConfig buildConfig) {
+		return new Supplier<FormMfaAuthenticationMechanism>() {
 			@Override
-			public MfaAuthenticationMechanism get() {
+			public FormMfaAuthenticationMechanism get() {
 				String key;
 				if (!config.getValue().encryptionKey.isPresent()) {
 					if (encryptionKey != null) {
@@ -71,21 +71,21 @@ public class MfaRecorder {
 					key = config.getValue().encryptionKey.get();
 				}
 				SecretKey jweKey = new AesKey(Base64.getDecoder().decode(key));
-				MfaRunTimeConfig config = MfaRecorder.this.config.getValue();
+				FormMfaRunTimeConfig config = FormMfaRecorder.this.config.getValue();
 				JWELoginManager loginManager = new JWELoginManager(jweKey, config.cookieName, config.sessionTimeout.toMillis(), config.newCookieInterval.toMillis());
 				String loginView = buildConfig.loginView.startsWith("/") ? buildConfig.loginView : "/" + buildConfig.loginView;
 				String logoutView = buildConfig.logoutView.startsWith("/") ? buildConfig.logoutView : "/" + buildConfig.logoutView;
 				String loginAction = buildConfig.loginAction.startsWith("/") ? buildConfig.loginAction : "/" + buildConfig.loginAction;
-				return new MfaAuthenticationMechanism(loginView, logoutView, loginAction, loginManager);
+				return new FormMfaAuthenticationMechanism(loginView, logoutView, loginAction, loginManager);
 			}
 		};
 	}
 
-	public Supplier<MfaIdentityProvider> setupMfaIdentityProvider() {
-		return new Supplier<MfaIdentityProvider>() {
+	public Supplier<FormMfaIdentityProvider> setupMfaIdentityProvider() {
+		return new Supplier<FormMfaIdentityProvider>() {
 			@Override
-			public MfaIdentityProvider get() {
-				return new MfaIdentityProvider();
+			public FormMfaIdentityProvider get() {
+				return new FormMfaIdentityProvider();
 			}
 		};
 	}

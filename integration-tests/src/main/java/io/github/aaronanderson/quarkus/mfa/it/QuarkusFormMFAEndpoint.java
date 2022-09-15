@@ -22,16 +22,16 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.MfaAuthContext;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewAction;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewStatus;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.MfaAuthContext;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.ViewAction;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.ViewStatus;
 import io.quarkus.vertx.http.runtime.CurrentVertxRequest;
 import io.vertx.core.json.JsonObject;
 
 @Path("/")
 @ApplicationScoped
-public class QuarkusMFAEndpoint {
+public class QuarkusFormMFAEndpoint {
 
 	@Inject
 	CurrentVertxRequest reqContext;
@@ -57,7 +57,7 @@ public class QuarkusMFAEndpoint {
 	@Path("mfa_login")
 	@Produces("application/json")
 	public String login() {
-		MfaAuthContext authContext = reqContext.getCurrent().get(MfaAuthConstants.AUTH_CONTEXT_KEY);
+		MfaAuthContext authContext = reqContext.getCurrent().get(FormMfaAuthConstants.AUTH_CONTEXT_KEY);
 		JsonObject result = new JsonObject();
 		result.put("action", authContext.getViewAction().toString());
 		if (authContext.getViewStatus() != null) {
@@ -73,7 +73,7 @@ public class QuarkusMFAEndpoint {
 	@Path("mfa_logout")
 	@Produces("application/json")
 	public String logout() {
-		MfaAuthContext authContext = reqContext.getCurrent().get(MfaAuthConstants.AUTH_CONTEXT_KEY);
+		MfaAuthContext authContext = reqContext.getCurrent().get(FormMfaAuthConstants.AUTH_CONTEXT_KEY);
 		JsonObject result = new JsonObject();
 		result.put("action", authContext.getViewAction().toString());
 		return result.encodePrettily();

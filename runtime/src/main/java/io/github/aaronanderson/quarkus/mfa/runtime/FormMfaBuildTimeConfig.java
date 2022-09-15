@@ -4,7 +4,7 @@ import io.quarkus.runtime.annotations.ConfigItem;
 import io.quarkus.runtime.annotations.ConfigRoot;
 
 @ConfigRoot(name = "mfa")
-public class MfaBuildTimeConfig {
+public class FormMfaBuildTimeConfig {
 	
 	 /**
      * If the MFA extension is enabled.

@@ -5,7 +5,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class MfaAuthConstants {
+public class FormMfaAuthConstants {
 	public static final String AUTH_CLAIMS_KEY = "quarkus_mfa_auth_claims";
 	public static final String AUTH_CONTEXT_KEY = "quarkus_mfa_auth_context";
 

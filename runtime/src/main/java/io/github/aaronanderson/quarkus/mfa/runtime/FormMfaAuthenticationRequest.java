@@ -4,10 +4,10 @@ import org.jose4j.jwt.JwtClaims;
 
 import io.quarkus.security.identity.request.BaseAuthenticationRequest;
 
-public class MfaAuthenticationRequest extends BaseAuthenticationRequest {
+public class FormMfaAuthenticationRequest extends BaseAuthenticationRequest {
 	private JwtClaims claims;
 
-	public MfaAuthenticationRequest(JwtClaims claims) {
+	public FormMfaAuthenticationRequest(JwtClaims claims) {
 		this.claims = claims;
 	}
 

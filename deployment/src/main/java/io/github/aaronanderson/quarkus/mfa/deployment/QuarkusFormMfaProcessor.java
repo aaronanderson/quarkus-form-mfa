@@ -4,10 +4,10 @@ import java.util.function.BooleanSupplier;
 
 import javax.inject.Singleton;
 
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthenticationMechanism;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaBuildTimeConfig;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityProvider;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaRecorder;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthenticationMechanism;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaBuildTimeConfig;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaIdentityProvider;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaRecorder;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
 import io.quarkus.arc.deployment.BeanContainerBuildItem;
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
@@ -21,8 +21,8 @@ import io.quarkus.vertx.http.deployment.VertxWebRouterBuildItem;
 import io.quarkus.vertx.http.runtime.HttpBuildTimeConfig;
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticationMechanism;
 
-@BuildSteps(onlyIf = QuarkusMfaProcessor.IsEnabled.class)
-class QuarkusMfaProcessor {
+@BuildSteps(onlyIf = QuarkusFormMfaProcessor.IsEnabled.class)
+class QuarkusFormMfaProcessor {
 
 	private static final String FEATURE = "mfa";
 
@@ -34,31 +34,31 @@ class QuarkusMfaProcessor {
 	@BuildStep
 	public void myBeans(BuildProducer<AdditionalBeanBuildItem> additionalBeans) {
 		AdditionalBeanBuildItem.Builder builder = AdditionalBeanBuildItem.builder();
-		builder.addBeanClass(MfaIdentityProvider.class);
+		builder.addBeanClass(FormMfaIdentityProvider.class);
 		additionalBeans.produce(builder.build());
 	}
 
 	@BuildStep
 	@Record(ExecutionTime.STATIC_INIT)
-	public void initPermissions(MfaRecorder recorder, MfaBuildTimeConfig mfaBuildTimeConfig, HttpBuildTimeConfig httpBuildTimeConfig) {
+	public void initPermissions(FormMfaRecorder recorder, FormMfaBuildTimeConfig mfaBuildTimeConfig, HttpBuildTimeConfig httpBuildTimeConfig) {
 		recorder.initPermissions(mfaBuildTimeConfig, httpBuildTimeConfig);
 
 	}
 
 	@Record(ExecutionTime.RUNTIME_INIT)
 	@BuildStep
-	public void setup(MfaRecorder recorder, MfaBuildTimeConfig mfaBuildTimeConfig, VertxWebRouterBuildItem vertxWebRouterBuildItem, BeanContainerBuildItem beanContainerBuildItem) {
+	public void setup(FormMfaRecorder recorder, FormMfaBuildTimeConfig mfaBuildTimeConfig, VertxWebRouterBuildItem vertxWebRouterBuildItem, BeanContainerBuildItem beanContainerBuildItem) {
 		recorder.setupRoutes(beanContainerBuildItem.getValue(), mfaBuildTimeConfig, vertxWebRouterBuildItem.getHttpRouter());
 	}
 
 	@BuildStep
 	@Record(ExecutionTime.RUNTIME_INIT)
-	void initMfaAuth(MfaRecorder recorder, MfaBuildTimeConfig mfaBuildTimeConfig, BuildProducer<SyntheticBeanBuildItem> syntheticBeans) {
-		syntheticBeans.produce(SyntheticBeanBuildItem.configure(MfaAuthenticationMechanism.class).unremovable().types(HttpAuthenticationMechanism.class).setRuntimeInit().scope(Singleton.class).supplier(recorder.setupMfaAuthenticationMechanism(mfaBuildTimeConfig)).done());
+	void initMfaAuth(FormMfaRecorder recorder, FormMfaBuildTimeConfig mfaBuildTimeConfig, BuildProducer<SyntheticBeanBuildItem> syntheticBeans) {
+		syntheticBeans.produce(SyntheticBeanBuildItem.configure(FormMfaAuthenticationMechanism.class).unremovable().types(HttpAuthenticationMechanism.class).setRuntimeInit().scope(Singleton.class).supplier(recorder.setupMfaAuthenticationMechanism(mfaBuildTimeConfig)).done());
 	}
 
 	public static class IsEnabled implements BooleanSupplier {
-		MfaBuildTimeConfig config;
+		FormMfaBuildTimeConfig config;
 
 		public boolean getAsBoolean() {
 			return config.enabled;

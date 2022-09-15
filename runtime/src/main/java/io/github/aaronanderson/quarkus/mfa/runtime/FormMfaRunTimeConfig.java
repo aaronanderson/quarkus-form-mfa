@@ -8,7 +8,7 @@ import io.quarkus.runtime.annotations.ConfigPhase;
 import io.quarkus.runtime.annotations.ConfigRoot;
 
 @ConfigRoot(name = "mfa", phase = ConfigPhase.RUN_TIME)
-public class MfaRunTimeConfig {
+public class FormMfaRunTimeConfig {
 
 
 	/**
@@ -47,6 +47,6 @@ public class MfaRunTimeConfig {
     /**
      * The cookie that is used to store the persistent session
      */
-    @ConfigItem(defaultValue = "quarkus-mfa-credential")
+    @ConfigItem(defaultValue = "quarkus-form-mfa-credential")
     public String cookieName;
 }

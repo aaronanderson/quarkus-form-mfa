@@ -18,15 +18,15 @@ import io.smallrye.mutiny.Uni;
 //IdentityProvider is ignored if annotated with @DefaultBean because there other default IdentityProvider implementations available. Overriding implementations will need to use the @Alternative/@Priority combination.
 @Unremovable
 @Singleton
-public class MfaIdentityProvider implements IdentityProvider<MfaAuthenticationRequest> {
+public class FormMfaIdentityProvider implements IdentityProvider<FormMfaAuthenticationRequest> {
 
 	@Override
-	public Class<MfaAuthenticationRequest> getRequestType() {
-		return MfaAuthenticationRequest.class;
+	public Class<FormMfaAuthenticationRequest> getRequestType() {
+		return FormMfaAuthenticationRequest.class;
 	}
 
 	@Override
-	public Uni<SecurityIdentity> authenticate(MfaAuthenticationRequest request, AuthenticationRequestContext context) {
+	public Uni<SecurityIdentity> authenticate(FormMfaAuthenticationRequest request, AuthenticationRequestContext context) {
 		return Uni.createFrom().item(() -> {
 
 			try {

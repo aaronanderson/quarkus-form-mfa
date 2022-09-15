@@ -1,8 +1,8 @@
-name: Quarkus Multi-Factored Authentication (MFA) Extension
+name: Quarkus Form Multi-Factored Authentication (MFA) Extension
 #description: Enhanced forms based authentication with TOTP along with account lockout, password reset, and Authenticator setup.
 metadata:
 #  keywords:
-#    - quarkus-mfa
+#    - quarkus-form-mfa
 #  guide: ...
 #  categories:
 #    - "miscellaneous"

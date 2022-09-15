@@ -4,7 +4,7 @@ import java.util.Map;
 
 import io.quarkus.security.credential.PasswordCredential;
 
-public interface MfaIdentityStore {
+public interface FormMfaIdentityStore {
 
 	public AuthenticationResult authenticate(String username, PasswordCredential password, Map<String, Object> attributes);
 

@@ -4,11 +4,11 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>io.github.aaronanderson</groupId>
-    <artifactId>quarkus-mfa-parent</artifactId>
+    <artifactId>quarkus-form-mfa-parent</artifactId>
     <version>1.0.0-SNAPSHOT</version>
   </parent>
-  <artifactId>quarkus-mfa</artifactId>
-  <name>Quarkus Multi-Factored Authentication (MFA) Extension - Runtime</name>
+  <artifactId>quarkus-form-mfa</artifactId>
+  <name>Quarkus Form Multi-Factored Authentication (MFA) Extension - Runtime</name>
   <description>Enhanced forms based authentication with TOTP along with account lockout, password reset, and Authenticator setup.</description>
   <dependencies>
       <dependency>

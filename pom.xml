@@ -3,10 +3,10 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.aaronanderson</groupId>
-  <artifactId>quarkus-mfa-parent</artifactId>
+  <artifactId>quarkus-form-mfa-parent</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <name>Quarkus Multi-Factored Authentication (MFA) Extension - Parent</name>
+  <name>Quarkus Form Multi-Factored Authentication (MFA) Extension - Parent</name>
   <modules>
     <module>deployment</module>
     <module>runtime</module>

@@ -15,13 +15,13 @@ import com.j256.twofactorauth.TimeBasedOneTimePasswordUtil;
 import de.mkammerer.argon2.Argon2;
 import de.mkammerer.argon2.Argon2Factory;
 import de.mkammerer.argon2.Argon2Factory.Argon2Types;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaIdentityStore;
 import io.quarkus.arc.Unremovable;
 import io.quarkus.security.credential.PasswordCredential;
 
 @Unremovable
 @ApplicationScoped
-public class TestMfaIdentityStore implements MfaIdentityStore {
+public class TestFormMfaIdentityStore implements FormMfaIdentityStore {
 	Map<String, User> users = new HashMap<>();
 
 	@PostConstruct

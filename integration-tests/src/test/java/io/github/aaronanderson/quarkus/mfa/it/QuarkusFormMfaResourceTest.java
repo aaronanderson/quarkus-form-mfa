@@ -11,14 +11,14 @@ import org.junit.jupiter.api.Test;
 
 import com.j256.twofactorauth.TimeBasedOneTimePasswordUtil;
 
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.FormFields;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.FormFields;
 import io.quarkus.arc.Arc;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.filter.cookie.CookieFilter;
 import io.vertx.core.json.JsonObject;
 
 @QuarkusTest
-public class QuarkusMfaResourceTest {
+public class QuarkusFormMfaResourceTest {
 
 	@Test
 	public void testPublicAccess() {
@@ -274,7 +274,7 @@ public class QuarkusMfaResourceTest {
 	
 	
 	private String getPasscode(String username) throws GeneralSecurityException {
-		TestMfaIdentityStore store = Arc.container().instance(TestMfaIdentityStore.class).get(); 
+		TestFormMfaIdentityStore store = Arc.container().instance(TestFormMfaIdentityStore.class).get(); 
 		return TimeBasedOneTimePasswordUtil.generateCurrentNumberString(store.totpKey(username));
 	}
 	

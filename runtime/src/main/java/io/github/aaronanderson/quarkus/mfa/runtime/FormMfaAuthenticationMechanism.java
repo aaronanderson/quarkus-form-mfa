@@ -1,7 +1,7 @@
 package io.github.aaronanderson.quarkus.mfa.runtime;
 
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_CLAIMS_KEY;
-import static io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.AUTH_CONTEXT_KEY;
+import static io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.AUTH_CLAIMS_KEY;
+import static io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.AUTH_CONTEXT_KEY;
 import static io.vertx.core.http.HttpHeaders.CONTENT_TYPE;
 import static io.vertx.core.http.HttpHeaders.LOCATION;
 
@@ -21,14 +21,14 @@ import org.jose4j.jwt.NumericDate;
 
 import com.j256.twofactorauth.TimeBasedOneTimePasswordUtil;
 
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.FormFields;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.MfaAuthContext;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewAction;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaAuthConstants.ViewStatus;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore.AuthenticationResult;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore.PasswordResetResult;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore.TotpCallback;
-import io.github.aaronanderson.quarkus.mfa.runtime.MfaIdentityStore.VerificationResult;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.FormFields;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.MfaAuthContext;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.ViewAction;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaAuthConstants.ViewStatus;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaIdentityStore.AuthenticationResult;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaIdentityStore.PasswordResetResult;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaIdentityStore.TotpCallback;
+import io.github.aaronanderson.quarkus.mfa.runtime.FormMfaIdentityStore.VerificationResult;
 import io.quarkus.arc.Arc;
 import io.quarkus.security.credential.PasswordCredential;
 import io.quarkus.security.identity.IdentityProviderManager;
@@ -44,16 +44,16 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
-public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
+public class FormMfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 
-	private static final Logger log = Logger.getLogger(MfaAuthenticationMechanism.class);
+	private static final Logger log = Logger.getLogger(FormMfaAuthenticationMechanism.class);
 
 	private final String loginView;
 	private final String logoutView;
 	private final String loginAction;
 	private final JWELoginManager loginManager;
 
-	MfaAuthenticationMechanism(String loginView, String logoutView, String loginAction, JWELoginManager loginManager) {
+	FormMfaAuthenticationMechanism(String loginView, String logoutView, String loginAction, JWELoginManager loginManager) {
 		this.loginView = loginView;
 		this.logoutView = logoutView;
 		this.loginAction = loginAction;
@@ -103,7 +103,7 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 	public Uni<SecurityIdentity> restoreIdentity(JwtClaims claims, RoutingContext context, IdentityProviderManager identityProviderManager) {
 		// previously authenticated. Automatically login using trusted credentials
 		context.put(HttpAuthenticationMechanism.class.getName(), this);
-		Uni<SecurityIdentity> ret = identityProviderManager.authenticate(HttpSecurityUtils.setRoutingContextAttribute(new MfaAuthenticationRequest(claims), context));
+		Uni<SecurityIdentity> ret = identityProviderManager.authenticate(HttpSecurityUtils.setRoutingContextAttribute(new FormMfaAuthenticationRequest(claims), context));
 		return ret.onItem().invoke(new Consumer<SecurityIdentity>() {
 			@Override
 			public void accept(SecurityIdentity securityIdentity) {
@@ -115,7 +115,7 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 	}
 
 	public void action(RoutingContext context) {
-		MfaIdentityStore mfaIdentityStore = Arc.container().instance(MfaIdentityStore.class).get();
+		FormMfaIdentityStore mfaIdentityStore = Arc.container().instance(FormMfaIdentityStore.class).get();
 		if (mfaIdentityStore == null) {
 			throw new IllegalStateException("MfaIdentityStore implementation is unavailable");
 		}
@@ -197,7 +197,7 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 		}
 	}
 
-	private void handleLogin(RoutingContext context, boolean isJson, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+	private void handleLogin(RoutingContext context, boolean isJson, JwtClaims authContext, FormMfaIdentityStore mfaIdentityStore) {
 		log.debugf("processing login");
 		Map<String, Object> attributes = new HashMap<>();
 
@@ -272,7 +272,7 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 		}
 	}
 
-	private void registerTotp(String username, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+	private void registerTotp(String username, JwtClaims authContext, FormMfaIdentityStore mfaIdentityStore) {
 		authContext.setClaim("action", ViewAction.REGISTER_TOTP);
 		authContext.setClaim("auth-sub", username);
 		String base32Secret = TimeBasedOneTimePasswordUtil.generateBase32Secret();
@@ -295,7 +295,7 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 
 	}
 
-	private void handlePasswordReset(RoutingContext context, boolean isJson, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+	private void handlePasswordReset(RoutingContext context, boolean isJson, JwtClaims authContext, FormMfaIdentityStore mfaIdentityStore) {
 		log.debugf("processing password reset");
 		String username = authContext.getClaimValueAsString("auth-sub");
 		String currentPassword = null;
@@ -342,7 +342,7 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 		}
 	}
 
-	private void handleVerifyTotp(RoutingContext context, boolean isJson, JwtClaims authContext, MfaIdentityStore mfaIdentityStore) {
+	private void handleVerifyTotp(RoutingContext context, boolean isJson, JwtClaims authContext, FormMfaIdentityStore mfaIdentityStore) {
 		log.debugf("processing verify TOTP");
 		String username = authContext.getClaimValueAsString("auth-sub");
 		String passcode = null;
@@ -424,7 +424,7 @@ public class MfaAuthenticationMechanism implements HttpAuthenticationMechanism {
 
 	@Override
 	public Set<Class<? extends AuthenticationRequest>> getCredentialTypes() {
-		return new HashSet<>(Arrays.asList(MfaAuthenticationRequest.class));
+		return new HashSet<>(Arrays.asList(FormMfaAuthenticationRequest.class));
 	}
 
 	@Override
